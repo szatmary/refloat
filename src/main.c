@@ -148,6 +148,73 @@ void beep_on(Data *d, bool force) {
     }
 }
 
+/**
+ * Apply rider weight and COG scaling to the config and runtime tunables.
+ *
+ * Call after loading config values but before they're used. Scales parameters
+ * based on inverted pendulum physics. Config values are treated as tuned for
+ * the reference rider (80kg, cog_ratio=1.0). This function applies multipliers
+ * so the same "feel" is preserved for different rider builds.
+ *
+ * @param d       Data struct with float_conf already loaded
+ * @param weight  Rider weight in kg
+ * @param cog     COG height ratio (1.0 = average, >1 = taller stance, <1 = shorter)
+ */
+static void apply_rider_scaling(Data *d, float weight, float cog) {
+    const float ref_weight = 80.0f;
+    float w = weight / ref_weight;
+    float c = cog;
+    float wc = w * c;
+
+    RefloatConfig *cfg = &d->float_conf;
+
+    // --- PID: torque per degree ∝ m·h, torque per (deg/s) ∝ m·h² ---
+    cfg->kp *= wc;
+    cfg->kp2 *= w * c * c;
+    cfg->ki *= wc;
+    cfg->ki_limit *= wc;
+    // kp_brake, kp2_brake are ratios on top of kp/kp2 — no change
+
+    // --- Balance filter: natural frequency ∝ √(g/h), independent of mass ---
+    float sqrt_c_inv = 1.0f / sqrtf(c);
+    cfg->mahony_kp *= sqrt_c_inv;
+    cfg->mahony_kp_roll *= sqrt_c_inv;
+
+    // --- ATR: normalize current-to-acceleration model for rider mass ---
+    cfg->atr_amps_accel_ratio *= w;
+    cfg->atr_amps_decel_ratio *= w;
+    // ATR strengths, thresholds, boosts are in normalized units — no change
+
+    // --- ATR tunables ---
+    d->atr.torque_offset = 8.0f * w;
+    d->atr.accel_clamp = 5.0f / w;
+    // torque_breakpoint, breakpoint_scale are motor properties — no change
+
+    // --- Torque tilt: input is current (∝ m), output is angle (geometric) ---
+    cfg->torquetilt_start_current *= w;
+    cfg->torquetilt_strength /= w;
+    cfg->torquetilt_strength_regen /= w;
+
+    // --- Booster: direct current injection, torque per degree ∝ m·h ---
+    cfg->booster_current *= wc;
+    cfg->brkbooster_current *= wc;
+    cfg->booster_angle /= wc;
+    cfg->brkbooster_angle /= wc;
+    cfg->booster_ramp /= wc;
+    cfg->brkbooster_ramp /= wc;
+
+    // --- Brake / startup: holding force ∝ m ---
+    cfg->brake_current *= w;
+    cfg->startup_click_current *= w;
+
+    // --- Wheelslip: detection gap is larger for heavier riders ---
+    d->wheelslip_accel_start = 15.0f / w;
+    d->wheelslip_accel_end = 10.0f / w;
+
+    // --- Output filter: heavier = more inertia = more filtering is safe ---
+    d->current_smoothing = clampf(0.2f / w, 0.1f, 0.4f);
+}
+
 static void reconfigure(Data *d) {
     balance_filter_configure(&d->balance_filter, &d->float_conf);
 
