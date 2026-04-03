@@ -295,14 +295,25 @@ wc = w * c
 |-----------|-------|
 | `kp`, `ki`, `ki_limit` | `*= wc` |
 | `kp2` | `*= wc * c` |
-| `mahony_kp`, `mahony_kp_roll` | `*= 1/√c` |
+| `mahony_kp` | `*= 1/√c` |
+| `mahony_kp_roll` | `*= 1/(√c · psi_factor)` |
+| `acc_confidence_decay` | `*= psi_factor` |
 | `atr_amps_accel_ratio`, `atr_amps_decel_ratio` | `*= w` |
 | `torquetilt_start_current` | `*= w` |
 | `torquetilt_strength`, `torquetilt_strength_regen` | `*= 1/w` |
+| `turntilt_strength` | `*= 1/psi_factor` |
 | `booster_current`, `brkbooster_current` | `*= wc` |
 | `booster_angle`, `brkbooster_angle` | `*= 1/wc` |
 | `booster_ramp`, `brkbooster_ramp` | `*= 1/wc` |
 | `brake_current`, `startup_click_current` | `*= w` |
+
+Where `psi_factor = √(20/psi)`. At 20 PSI (reference) psi_factor = 1.0.
+
+**Tire pressure effects:**
+- **Rolling resistance** (`torque_offset`): softer tire = more deformation = more drag
+- **Turn tilt** (`turntilt_strength`): softer tire = more self-steering torque = less compensation needed
+- **Roll filter** (`mahony_kp_roll`): softer tire damps roll vibrations = cleaner signal
+- **Accel confidence** (`acc_confidence_decay`): harder tire transmits more bump noise = trust accel less
 
 ### Layer 2: Feel Sliders
 

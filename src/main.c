@@ -181,9 +181,12 @@ static void apply_rider_defaults(Data *d, float weight, float cog, float psi) {
     cfg->kp2 *= wc * c;
 
     // --- Balance filter: natural frequency ∝ 1/√h ---
+    // Softer tire damps vibrations → cleaner accel signal → can trust it more.
+    // Higher pressure transmits more noise → need more decay.
     float inv_sqrt_c = 1.0f / sqrtf(c);
     cfg->mahony_kp *= inv_sqrt_c;
-    cfg->mahony_kp_roll *= inv_sqrt_c;
+    cfg->mahony_kp_roll *= inv_sqrt_c / psi_factor;
+    d->balance_filter.acc_confidence_decay *= psi_factor;
 
     // --- ATR: current-to-acceleration model ∝ m ---
     cfg->atr_amps_accel_ratio *= w;
@@ -201,6 +204,9 @@ static void apply_rider_defaults(Data *d, float weight, float cog, float psi) {
     cfg->brkbooster_angle *= 1.0f / wc;
     cfg->booster_ramp *= 1.0f / wc;
     cfg->brkbooster_ramp *= 1.0f / wc;
+
+    // --- Turn tilt: softer tire = more self-steering torque = less compensation ---
+    cfg->turntilt_strength /= psi_factor;
 
     // --- Brake/idle: holding current ∝ m ---
     cfg->brake_current *= w;
