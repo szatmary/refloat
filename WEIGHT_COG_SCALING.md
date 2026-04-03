@@ -261,7 +261,7 @@ feel the same for a 60kg rider as for a 120kg rider after this is applied.
 **Inputs:**
 - **Weight (kg)** — rider mass, dominant factor
 - **COG ratio** — center of gravity height (1.0 = average, >1 = taller)
-- **Tire pressure (PSI)** — affects rolling resistance (F_rr ∝ 1/√psi)
+- **Tire pressure (PSI)** — reference = weight/10, deviations affect rolling resistance, turning, and filtering
 
 Two strategies are used depending on the parameter type:
 
@@ -273,7 +273,7 @@ directly from rider inputs — no ratio needed because there's no user-facing
 
 | Parameter | Formula | 80kg/20PSI value |
 |-----------|---------|------------------|
-| `torque_offset` | `0.1 * weight * √(20/psi)` | 8.0 |
+| `torque_offset` | `0.1 * weight * √(ref_psi/psi)` | 8.0 |
 | `accel_clamp` | `400.0 / weight` | 5.0 |
 | `current_smoothing` | `clamp(16.0 / weight, 0.1, 0.4)` | 0.2 |
 | `wheelslip_accel_start` | `1200.0 / weight` | 15.0 |
@@ -307,7 +307,8 @@ wc = w * c
 | `booster_ramp`, `brkbooster_ramp` | `*= 1/wc` |
 | `brake_current`, `startup_click_current` | `*= w` |
 
-Where `psi_factor = √(20/psi)`. At 20 PSI (reference) psi_factor = 1.0.
+Where `psi_factor = √(ref_psi/psi)` and `ref_psi = weight/10`. At the rider's
+natural pressure (10% of body weight in kg), psi_factor = 1.0.
 
 **Tire pressure effects:**
 - **Rolling resistance** (`torque_offset`): softer tire = more deformation = more drag

@@ -159,16 +159,16 @@ void beep_on(Data *d, bool force) {
  * @param d       Data struct (tunables are set on the module structs)
  * @param weight  Rider weight in kg
  * @param cog     COG height ratio (1.0 = average, >1 = taller stance, <1 = shorter)
- * @param psi     Tire pressure in PSI
+ * @param psi     Tire pressure in PSI (neutral = weight/10)
  */
 static void apply_rider_defaults(Data *d, float weight, float cog, float psi) {
-    // Reference rider: 80kg, COG ratio 1.0, 20 PSI.
-    // Weight ratio scales existing config params so the board feels the same
-    // for all rider sizes. New tunables are computed directly from weight.
+    // Reference pressure = weight/10. At that pressure, psi_factor = 1.0.
+    // Lower pressure increases the factor (more drag, more tire damping).
     float w = weight / 80.0f;
     float c = cog;
     float wc = w * c;
-    float psi_factor = sqrtf(20.0f / psi);
+    float ref_psi = weight / 10.0f;
+    float psi_factor = sqrtf(ref_psi / psi);
 
     RefloatConfig *cfg = &d->float_conf;
 
