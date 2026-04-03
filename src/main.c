@@ -162,12 +162,12 @@ void beep_on(Data *d, bool force) {
  * @param psi     Tire pressure in PSI (neutral = weight/10)
  */
 static void apply_rider_defaults(Data *d, float weight, float cog, float psi) {
-    // Reference pressure = weight/10. At that pressure, psi_factor = 1.0.
-    // Lower pressure increases the factor (more drag, more tire damping).
+    // Reference pressure = weight_lbs/10. Typical rule: 180lb rider → 18 PSI.
+    // Weight is in kg, so convert: ref_psi = (weight * 2.205) / 10
     float w = weight / 80.0f;
     float c = cog;
     float wc = w * c;
-    float ref_psi = weight / 10.0f;
+    float ref_psi = weight * 0.2205f;
     float psi_factor = sqrtf(ref_psi / psi);
 
     RefloatConfig *cfg = &d->float_conf;

@@ -261,7 +261,7 @@ feel the same for a 60kg rider as for a 120kg rider after this is applied.
 **Inputs:**
 - **Weight (kg)** — rider mass, dominant factor
 - **COG ratio** — center of gravity height (1.0 = average, >1 = taller)
-- **Tire pressure (PSI)** — reference = weight/10, deviations affect rolling resistance, turning, and filtering
+- **Tire pressure (PSI)** — reference = weight_lbs/10, deviations affect rolling resistance, turning, and filtering
 
 Two strategies are used depending on the parameter type:
 
@@ -307,8 +307,9 @@ wc = w * c
 | `booster_ramp`, `brkbooster_ramp` | `*= 1/wc` |
 | `brake_current`, `startup_click_current` | `*= w` |
 
-Where `psi_factor = √(ref_psi/psi)` and `ref_psi = weight/10`. At the rider's
-natural pressure (10% of body weight in kg), psi_factor = 1.0.
+Where `psi_factor = √(ref_psi/psi)` and `ref_psi = weight_lbs/10` (i.e.
+`weight_kg * 0.2205`). At the rider's natural pressure (10% of body weight
+in lbs), psi_factor = 1.0. Example: 180 lb (82 kg) rider at 18 PSI is neutral.
 
 **Tire pressure effects:**
 - **Rolling resistance** (`torque_offset`): softer tire = more deformation = more drag
