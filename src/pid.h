@@ -26,6 +26,9 @@ typedef struct {
     float i;
     float rate_p;  // used instead of d, works better with high Mahony KP
 
+    // Tunable parameter (default set in pid_init)
+    float brake_transition_rate;
+
     // PID brake scaling
     float kp_brake_scale;
     float kp2_brake_scale;

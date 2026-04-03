@@ -27,6 +27,9 @@ typedef struct {
 
     float ramped_step_size;
     float setpoint;
+
+    // Tunable parameter (default set in torque_tilt_init)
+    float winddown_rate;
 } TorqueTilt;
 
 void torque_tilt_init(TorqueTilt *tt);

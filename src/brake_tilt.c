@@ -24,6 +24,8 @@
 
 void brake_tilt_init(BrakeTilt *bt) {
     bt->factor = 0.0f;
+    bt->winddown_setpoint_rate = 0.995f;
+    bt->winddown_target_rate = 0.99f;
     brake_tilt_reset(bt);
 }
 
@@ -87,6 +89,6 @@ void brake_tilt_update(
 }
 
 void brake_tilt_winddown(BrakeTilt *bt) {
-    bt->setpoint *= 0.995;
-    bt->target *= 0.99;
+    bt->setpoint *= bt->winddown_setpoint_rate;
+    bt->target *= bt->winddown_target_rate;
 }

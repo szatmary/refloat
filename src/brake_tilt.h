@@ -27,6 +27,10 @@ typedef struct {
     float target;
     float ramped_step_size;
     float setpoint;
+
+    // Tunable parameters (defaults set in brake_tilt_init)
+    float winddown_setpoint_rate;
+    float winddown_target_rate;
 } BrakeTilt;
 
 void brake_tilt_init(BrakeTilt *bt);

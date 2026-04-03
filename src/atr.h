@@ -26,6 +26,15 @@ typedef struct {
     float off_step_size;
     float speed_boost_mult;
 
+    // Tunable parameters (defaults set in atr_init)
+    float torque_offset;
+    float torque_breakpoint;
+    float torque_breakpoint_scale;
+    float accel_clamp;
+    float target_smoothing;
+    float winddown_setpoint_rate;
+    float winddown_target_rate;
+
     float accel_diff;
     float speed_boost;
 

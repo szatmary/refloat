@@ -34,6 +34,9 @@ typedef struct {
 
     float target;
     float setpoint;
+
+    // Tunable parameter (default set in turn_tilt_init)
+    float winddown_rate;
 } TurnTilt;
 
 void turn_tilt_init(TurnTilt *tt);

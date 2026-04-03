@@ -44,8 +44,7 @@ static float calculate_acc_confidence(float new_acc_mag, BalanceFilterData *data
     // aircraft is being accelerated over and above that due to gravity
     data->acc_mag = data->acc_mag * 0.9 + new_acc_mag * 0.1;
 
-    // Hard-coded accelerometer confidence decay of 0.02
-    float confidence = 1.0 - (0.02 * sqrtf(fabsf(data->acc_mag - 1.0f)));
+    float confidence = 1.0 - (data->acc_confidence_decay * sqrtf(fabsf(data->acc_mag - 1.0f)));
 
     return confidence > 0 ? confidence : 0;
 }
@@ -59,6 +58,7 @@ void balance_filter_init(BalanceFilterData *data) {
     data->q2 = quat[2];
     data->q3 = quat[3];
     data->acc_mag = 1.0;
+    data->acc_confidence_decay = 0.02f;
 }
 
 void balance_filter_configure(BalanceFilterData *data, const RefloatConfig *config) {

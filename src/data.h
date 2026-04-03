@@ -126,6 +126,13 @@ typedef struct {
     // Feature: Soft Start
     float softstart_pid_limit, softstart_ramp_step_size;
 
+    // Tunable parameters (defaults set in data_init)
+    float current_smoothing;
+    float wheelslip_accel_start;
+    float wheelslip_accel_end;
+    float wheelslip_scnd_duty;
+    float wheelslip_timeout;
+
     uint64_t odometer;
 
     // Feature: RC Move (control via app while idle)

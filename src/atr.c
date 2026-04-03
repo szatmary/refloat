@@ -26,6 +26,15 @@ void atr_init(ATR *atr) {
     atr->on_step_size = 0.0f;
     atr->off_step_size = 0.0f;
     atr->speed_boost_mult = 0.0f;
+
+    atr->torque_offset = 8.0f;
+    atr->torque_breakpoint = 25.0f;
+    atr->torque_breakpoint_scale = 1.3f;
+    atr->accel_clamp = 5.0f;
+    atr->target_smoothing = 0.05f;
+    atr->winddown_setpoint_rate = 0.995f;
+    atr->winddown_target_rate = 0.99f;
+
     atr_reset(atr);
 }
 
@@ -52,26 +61,27 @@ void atr_configure(ATR *atr, const RefloatConfig *config) {
 
 void atr_update(ATR *atr, const MotorData *motor, const RefloatConfig *config) {
     float abs_torque = fabsf(motor->filt_current);
-    float torque_offset = 8;  // hard-code to 8A for now (shouldn't really be changed much anyways)
     float atr_threshold = motor->braking ? config->atr_threshold_down : config->atr_threshold_up;
     float accel_factor =
         motor->braking ? config->atr_amps_decel_ratio : config->atr_amps_accel_ratio;
-    float accel_factor2 = accel_factor * 1.3;
+    float accel_factor2 = accel_factor * atr->torque_breakpoint_scale;
 
     // compare measured acceleration to expected acceleration
-    float measured_acc = fmaxf(motor->acceleration, -5);
-    measured_acc = fminf(measured_acc, 5);
+    float measured_acc = fmaxf(motor->acceleration, -atr->accel_clamp);
+    measured_acc = fminf(measured_acc, atr->accel_clamp);
 
     // expected acceleration is proportional to current (minus an offset, required to
     // balance/maintain speed)
     float expected_acc;
-    if (abs_torque < 25) {
-        expected_acc = (motor->filt_current - motor->erpm_sign * torque_offset) / accel_factor;
+    if (abs_torque < atr->torque_breakpoint) {
+        expected_acc =
+            (motor->filt_current - motor->erpm_sign * atr->torque_offset) / accel_factor;
     } else {
         // primitive linear approximation of non-linear torque-accel relationship
         int torque_sign = sign(motor->filt_current);
-        expected_acc = (torque_sign * 25 - motor->erpm_sign * torque_offset) / accel_factor;
-        expected_acc += torque_sign * (abs_torque - 25) / accel_factor2;
+        expected_acc = (torque_sign * atr->torque_breakpoint - motor->erpm_sign * atr->torque_offset)
+            / accel_factor;
+        expected_acc += torque_sign * (abs_torque - atr->torque_breakpoint) / accel_factor2;
     }
 
     bool forward = motor->erpm > 0;
@@ -117,7 +127,7 @@ void atr_update(ATR *atr, const MotorData *motor, const RefloatConfig *config) {
         new_atr_target -= sign(new_atr_target) * atr_threshold;
     }
 
-    atr->target = atr->target * 0.95 + 0.05 * new_atr_target;
+    atr->target = atr->target * (1.0f - atr->target_smoothing) + atr->target_smoothing * new_atr_target;
     atr->target = fminf(atr->target, config->atr_angle_limit);
     atr->target = fmaxf(atr->target, -config->atr_angle_limit);
 
@@ -198,6 +208,6 @@ void atr_update(ATR *atr, const MotorData *motor, const RefloatConfig *config) {
 }
 
 void atr_winddown(ATR *atr) {
-    atr->setpoint *= 0.995;
-    atr->target *= 0.99;
+    atr->setpoint *= atr->winddown_setpoint_rate;
+    atr->target *= atr->winddown_target_rate;
 }

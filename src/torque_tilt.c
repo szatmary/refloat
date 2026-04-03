@@ -25,6 +25,7 @@
 void torque_tilt_init(TorqueTilt *tt) {
     tt->on_step_size = 0.0f;
     tt->off_step_size = 0.0f;
+    tt->winddown_rate = 0.995f;
     torque_tilt_reset(tt);
 }
 
@@ -76,5 +77,5 @@ void torque_tilt_update(TorqueTilt *tt, const MotorData *motor, const RefloatCon
 }
 
 void torque_tilt_winddown(TorqueTilt *tt) {
-    tt->setpoint *= 0.995;
+    tt->setpoint *= tt->winddown_rate;
 }

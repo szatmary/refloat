@@ -24,6 +24,7 @@
 void turn_tilt_init(TurnTilt *tt) {
     tt->step_size = 0.0f;
     tt->boost_per_erpm = 0.0f;
+    tt->winddown_rate = 0.995f;
     turn_tilt_reset(tt);
 }
 
@@ -127,5 +128,5 @@ void turn_tilt_update(TurnTilt *tt, const MotorData *md, const RefloatConfig *co
 }
 
 void turn_tilt_winddown(TurnTilt *tt) {
-    tt->setpoint *= 0.995;
+    tt->setpoint *= tt->winddown_rate;
 }

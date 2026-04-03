@@ -31,6 +31,9 @@ typedef struct {
     float kp_pitch;
     float kp_roll;
     float kp_yaw;
+
+    // Tunable parameter (default set in balance_filter_init)
+    float acc_confidence_decay;
 } BalanceFilterData;
 
 void balance_filter_init(BalanceFilterData *data);

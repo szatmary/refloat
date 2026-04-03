@@ -543,7 +543,7 @@ static void calculate_setpoint_target(Data *d) {
         timer_refresh(&d->time, &d->reverse_timer);
     } else if (d->state.mode != MODE_FLYWHEEL &&
                // not normal, either wheelslip or wheel getting stuck
-               fabsf(d->motor.acceleration) > 15 &&
+               fabsf(d->motor.acceleration) > d->wheelslip_accel_start &&
                sign(d->motor.acceleration) == d->motor.erpm_sign && d->motor.duty_cycle > 0.3 &&
                // acceleration can jump a lot at very low speeds
                d->motor.abs_erpm > 2000) {
@@ -554,15 +554,15 @@ static void calculate_setpoint_target(Data *d) {
             d->traction_control = true;
         }
     } else if (d->state.wheelslip) {
-        if (fabsf(d->motor.acceleration) < 10) {
+        if (fabsf(d->motor.acceleration) < d->wheelslip_accel_end) {
             // acceleration is slowing down, traction control seems to have worked
             d->traction_control = false;
         }
         // Remain in wheelslip state for a bit to avoid any overreactions
         if (d->motor.duty_cycle > d->motor.duty_max_with_margin) {
             timer_refresh(&d->time, &d->wheelslip_timer);
-        } else if (timer_older(&d->time, d->wheelslip_timer, 0.2)) {
-            if (d->motor.duty_raw < 0.85) {
+        } else if (timer_older(&d->time, d->wheelslip_timer, d->wheelslip_timeout)) {
+            if (d->motor.duty_raw < d->wheelslip_scnd_duty) {
                 d->traction_control = false;
                 d->state.wheelslip = false;
             }
@@ -943,7 +943,8 @@ static void refloat_thd(void *arg) {
                 // freewheel while traction loss is detected
                 d->balance_current = 0;
             } else {
-                d->balance_current = d->balance_current * 0.8 + new_current * 0.2;
+                d->balance_current = d->balance_current * (1.0f - d->current_smoothing) +
+                    new_current * d->current_smoothing;
             }
 
             motor_control_request_current(&d->motor_control, d->balance_current);
@@ -1230,6 +1231,12 @@ static void data_init(Data *d) {
     d->beep_num_left = 0;
     d->beep_duration = 0.0f;
     d->beeper_timer = 0;
+
+    d->current_smoothing = 0.2f;
+    d->wheelslip_accel_start = 15.0f;
+    d->wheelslip_accel_end = 10.0f;
+    d->wheelslip_scnd_duty = 0.85f;
+    d->wheelslip_timeout = 0.2f;
 }
 
 // See also:

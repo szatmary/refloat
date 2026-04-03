@@ -28,6 +28,8 @@ void pid_init(PID *pid) {
     pid->i = 0;
     pid->rate_p = 0;
 
+    pid->brake_transition_rate = 0.01f;
+
     pid->kp_brake_scale = 1.0;
     pid->kp2_brake_scale = 1.0;
     pid->kp_accel_scale = 1.0;
@@ -46,24 +48,26 @@ void pid_update(
     }
 
     // brake scale coefficient smoothing
+    float r = pid->brake_transition_rate;
+    float ri = 1.0f - r;
     if (md->abs_erpm < 500) {
         // all scaling should roll back to 1.0 when near a stop for smooth transitions
-        pid->kp_brake_scale = 0.01 + 0.99 * pid->kp_brake_scale;
-        pid->kp2_brake_scale = 0.01 + 0.99 * pid->kp2_brake_scale;
-        pid->kp_accel_scale = 0.01 + 0.99 * pid->kp_accel_scale;
-        pid->kp2_accel_scale = 0.01 + 0.99 * pid->kp2_accel_scale;
+        pid->kp_brake_scale = r + ri * pid->kp_brake_scale;
+        pid->kp2_brake_scale = r + ri * pid->kp2_brake_scale;
+        pid->kp_accel_scale = r + ri * pid->kp_accel_scale;
+        pid->kp2_accel_scale = r + ri * pid->kp2_accel_scale;
     } else if (md->erpm > 0) {
         // rolling forward - brakes transition to scaled values
-        pid->kp_brake_scale = 0.01 * config->kp_brake + 0.99 * pid->kp_brake_scale;
-        pid->kp2_brake_scale = 0.01 * config->kp2_brake + 0.99 * pid->kp2_brake_scale;
-        pid->kp_accel_scale = 0.01 + 0.99 * pid->kp_accel_scale;
-        pid->kp2_accel_scale = 0.01 + 0.99 * pid->kp2_accel_scale;
+        pid->kp_brake_scale = r * config->kp_brake + ri * pid->kp_brake_scale;
+        pid->kp2_brake_scale = r * config->kp2_brake + ri * pid->kp2_brake_scale;
+        pid->kp_accel_scale = r + ri * pid->kp_accel_scale;
+        pid->kp2_accel_scale = r + ri * pid->kp2_accel_scale;
     } else {
         // rolling backward, NEW brakes (we use kp_accel) transition to scaled values
-        pid->kp_brake_scale = 0.01 + 0.99 * pid->kp_brake_scale;
-        pid->kp2_brake_scale = 0.01 + 0.99 * pid->kp2_brake_scale;
-        pid->kp_accel_scale = 0.01 * config->kp_brake + 0.99 * pid->kp_accel_scale;
-        pid->kp2_accel_scale = 0.01 * config->kp2_brake + 0.99 * pid->kp2_accel_scale;
+        pid->kp_brake_scale = r + ri * pid->kp_brake_scale;
+        pid->kp2_brake_scale = r + ri * pid->kp2_brake_scale;
+        pid->kp_accel_scale = r * config->kp_brake + ri * pid->kp_accel_scale;
+        pid->kp2_accel_scale = r * config->kp2_brake + ri * pid->kp2_accel_scale;
     }
 
     pid->p *= config->kp * (pid->p > 0 ? pid->kp_accel_scale : pid->kp_brake_scale);
