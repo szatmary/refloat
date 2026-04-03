@@ -250,3 +250,57 @@ all nose angling, all winddown rates, target_smoothing,
 torque_breakpoint, torque_breakpoint_scale,
 wheelslip_scnd_duty, wheelslip_timeout
 ```
+
+## Implementation: Two-Layer Architecture
+
+### Layer 1: `apply_rider_defaults(weight_kg, cog_ratio)`
+
+Establishes a "default profile" tuned to the rider's size. The board should
+feel the same for a 60kg rider as for a 120kg rider after this is applied.
+
+Two strategies are used depending on the parameter type:
+
+#### Direct calculation (new tunables)
+
+These parameters were previously hardcoded constants. Their values are computed
+directly from rider weight — no ratio needed because there's no user-facing
+"default" to preserve:
+
+| Parameter | Formula | 80kg value |
+|-----------|---------|------------|
+| `torque_offset` | `0.1 * weight` | 8.0 |
+| `accel_clamp` | `400.0 / weight` | 5.0 |
+| `current_smoothing` | `clamp(16.0 / weight, 0.1, 0.4)` | 0.2 |
+| `wheelslip_accel_start` | `1200.0 / weight` | 15.0 |
+| `wheelslip_accel_end` | `800.0 / weight` | 10.0 |
+
+#### Ratio scaling (existing config params)
+
+These are user-tunable values stored in EEPROM. Defaults are assumed tuned
+for 80kg at COG ratio 1.0. We multiply by the appropriate ratio so the
+rider's tuned values produce the same physical response at their weight:
+
+```
+w  = weight / 80.0    // weight ratio
+c  = cog              // COG ratio (1.0 = reference)
+wc = w * c
+```
+
+| Parameter | Ratio |
+|-----------|-------|
+| `kp`, `ki`, `ki_limit` | `*= wc` |
+| `kp2` | `*= wc * c` |
+| `mahony_kp`, `mahony_kp_roll` | `*= 1/√c` |
+| `atr_amps_accel_ratio`, `atr_amps_decel_ratio` | `*= w` |
+| `torquetilt_start_current` | `*= w` |
+| `torquetilt_strength`, `torquetilt_strength_regen` | `*= 1/w` |
+| `booster_current`, `brkbooster_current` | `*= wc` |
+| `booster_angle`, `brkbooster_angle` | `*= 1/wc` |
+| `booster_ramp`, `brkbooster_ramp` | `*= 1/wc` |
+| `brake_current`, `startup_click_current` | `*= w` |
+
+### Layer 2: Feel Sliders
+
+Applied on top of the weight-adjusted baseline. Each slider modifies a
+subset of parameters to shape ride character (Tightness, Flow, Adaptive,
+Carve, Safety, Progression). See RIDE_FEEL_SLIDERS.md for the full design.

@@ -149,70 +149,78 @@ void beep_on(Data *d, bool force) {
 }
 
 /**
- * Apply rider weight and COG scaling to the config and runtime tunables.
+ * Compute defaults for the newly-tunable parameters based on rider weight and COG.
  *
- * Call after loading config values but before they're used. Scales parameters
- * based on inverted pendulum physics. Config values are treated as tuned for
- * the reference rider (80kg, cog_ratio=1.0). This function applies multipliers
- * so the same "feel" is preserved for different rider builds.
+ * These are the parameters that were previously hardcoded constants. Their
+ * correct values depend on rider physics (mass, center of gravity height).
+ * Each default is computed directly from the inputs — no reference rider
+ * assumption, no multipliers on existing config.
  *
- * @param d       Data struct with float_conf already loaded
+ * Existing config parameters (kp, ki, booster_current, etc.) are NOT touched.
+ * Those are user-facing settings tuned by the rider or the feel sliders.
+ *
+ * @param d       Data struct (tunables are set on the module structs)
  * @param weight  Rider weight in kg
  * @param cog     COG height ratio (1.0 = average, >1 = taller stance, <1 = shorter)
  */
-static void apply_rider_scaling(Data *d, float weight, float cog) {
-    const float ref_weight = 80.0f;
-    float w = weight / ref_weight;
+static void apply_rider_defaults(Data *d, float weight, float cog) {
+    // Reference rider: 80kg, COG ratio 1.0.
+    // Weight ratio scales existing config params so the board feels the same
+    // for all rider sizes. New tunables are computed directly from weight.
+    float w = weight / 80.0f;
     float c = cog;
     float wc = w * c;
 
     RefloatConfig *cfg = &d->float_conf;
 
-    // --- PID: torque per degree ∝ m·h, torque per (deg/s) ∝ m·h² ---
+    // --- PID: torque per degree ∝ m·h ---
     cfg->kp *= wc;
-    cfg->kp2 *= w * c * c;
     cfg->ki *= wc;
     cfg->ki_limit *= wc;
-    // kp_brake, kp2_brake are ratios on top of kp/kp2 — no change
 
-    // --- Balance filter: natural frequency ∝ √(g/h), independent of mass ---
-    float sqrt_c_inv = 1.0f / sqrtf(c);
-    cfg->mahony_kp *= sqrt_c_inv;
-    cfg->mahony_kp_roll *= sqrt_c_inv;
+    // --- PID: rate damping torque ∝ m·h² ---
+    cfg->kp2 *= wc * c;
 
-    // --- ATR: normalize current-to-acceleration model for rider mass ---
+    // --- Balance filter: natural frequency ∝ 1/√h ---
+    float inv_sqrt_c = 1.0f / sqrtf(c);
+    cfg->mahony_kp *= inv_sqrt_c;
+    cfg->mahony_kp_roll *= inv_sqrt_c;
+
+    // --- ATR: current-to-acceleration model ∝ m ---
     cfg->atr_amps_accel_ratio *= w;
     cfg->atr_amps_decel_ratio *= w;
-    // ATR strengths, thresholds, boosts are in normalized units — no change
 
-    // --- ATR tunables ---
-    d->atr.torque_offset = 8.0f * w;
-    d->atr.accel_clamp = 5.0f / w;
-    // torque_breakpoint, breakpoint_scale are motor properties — no change
-
-    // --- Torque tilt: input is current (∝ m), output is angle (geometric) ---
+    // --- Torque tilt: threshold ∝ m, strength ∝ 1/m ---
     cfg->torquetilt_start_current *= w;
-    cfg->torquetilt_strength /= w;
-    cfg->torquetilt_strength_regen /= w;
+    cfg->torquetilt_strength *= 1.0f / w;
+    cfg->torquetilt_strength_regen *= 1.0f / w;
 
-    // --- Booster: direct current injection, torque per degree ∝ m·h ---
+    // --- Booster: current ∝ m·h, angle/ramp ∝ 1/(m·h) ---
     cfg->booster_current *= wc;
     cfg->brkbooster_current *= wc;
-    cfg->booster_angle /= wc;
-    cfg->brkbooster_angle /= wc;
-    cfg->booster_ramp /= wc;
-    cfg->brkbooster_ramp /= wc;
+    cfg->booster_angle *= 1.0f / wc;
+    cfg->brkbooster_angle *= 1.0f / wc;
+    cfg->booster_ramp *= 1.0f / wc;
+    cfg->brkbooster_ramp *= 1.0f / wc;
 
-    // --- Brake / startup: holding force ∝ m ---
+    // --- Brake/idle: holding current ∝ m ---
     cfg->brake_current *= w;
     cfg->startup_click_current *= w;
 
-    // --- Wheelslip: detection gap is larger for heavier riders ---
-    d->wheelslip_accel_start = 15.0f / w;
-    d->wheelslip_accel_end = 10.0f / w;
+    // --- New tunables: computed directly from weight ---
 
-    // --- Output filter: heavier = more inertia = more filtering is safe ---
-    d->current_smoothing = clampf(0.2f / w, 0.1f, 0.4f);
+    // Rolling resistance current ≈ 0.1A per kg
+    d->atr.torque_offset = 0.1f * weight;
+
+    // Observable acceleration range: a = F/m
+    d->atr.accel_clamp = 400.0f / weight;
+
+    // Heavier systems tolerate more output filtering
+    d->current_smoothing = clampf(16.0f / weight, 0.1f, 0.4f);
+
+    // Wheelslip detection: heavier rider = lower baseline accel = tighter threshold
+    d->wheelslip_accel_start = 1200.0f / weight;
+    d->wheelslip_accel_end = 800.0f / weight;
 }
 
 static void reconfigure(Data *d) {
