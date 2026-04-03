@@ -149,27 +149,26 @@ void beep_on(Data *d, bool force) {
 }
 
 /**
- * Compute defaults for the newly-tunable parameters based on rider weight and COG.
+ * Apply rider setup to establish the default profile.
  *
- * These are the parameters that were previously hardcoded constants. Their
- * correct values depend on rider physics (mass, center of gravity height).
- * Each default is computed directly from the inputs — no reference rider
- * assumption, no multipliers on existing config.
- *
- * Existing config parameters (kp, ki, booster_current, etc.) are NOT touched.
- * Those are user-facing settings tuned by the rider or the feel sliders.
+ * Scales existing config params (kp, booster, etc.) by weight/COG ratios so
+ * the board feels the same for all rider sizes. Computes new tunables
+ * (torque_offset, accel_clamp, etc.) directly from rider inputs.
+ * Feel sliders are applied on top of this baseline.
  *
  * @param d       Data struct (tunables are set on the module structs)
  * @param weight  Rider weight in kg
  * @param cog     COG height ratio (1.0 = average, >1 = taller stance, <1 = shorter)
+ * @param psi     Tire pressure in PSI
  */
-static void apply_rider_defaults(Data *d, float weight, float cog) {
-    // Reference rider: 80kg, COG ratio 1.0.
+static void apply_rider_defaults(Data *d, float weight, float cog, float psi) {
+    // Reference rider: 80kg, COG ratio 1.0, 20 PSI.
     // Weight ratio scales existing config params so the board feels the same
     // for all rider sizes. New tunables are computed directly from weight.
     float w = weight / 80.0f;
     float c = cog;
     float wc = w * c;
+    float psi_factor = sqrtf(20.0f / psi);
 
     RefloatConfig *cfg = &d->float_conf;
 
@@ -209,8 +208,9 @@ static void apply_rider_defaults(Data *d, float weight, float cog) {
 
     // --- New tunables: computed directly from weight ---
 
-    // Rolling resistance current ≈ 0.1A per kg
-    d->atr.torque_offset = 0.1f * weight;
+    // Rolling resistance: F_rr ∝ m / √(psi)
+    // ~0.1A/kg at 20 PSI reference pressure
+    d->atr.torque_offset = 0.1f * weight * psi_factor;
 
     // Observable acceleration range: a = F/m
     d->atr.accel_clamp = 400.0f / weight;

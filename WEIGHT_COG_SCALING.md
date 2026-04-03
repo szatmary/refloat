@@ -253,22 +253,27 @@ wheelslip_scnd_duty, wheelslip_timeout
 
 ## Implementation: Two-Layer Architecture
 
-### Layer 1: `apply_rider_defaults(weight_kg, cog_ratio)`
+### Layer 1: `apply_rider_defaults(weight_kg, cog_ratio, psi)`
 
-Establishes a "default profile" tuned to the rider's size. The board should
+Establishes a "default profile" tuned to the rider's setup. The board should
 feel the same for a 60kg rider as for a 120kg rider after this is applied.
+
+**Inputs:**
+- **Weight (kg)** — rider mass, dominant factor
+- **COG ratio** — center of gravity height (1.0 = average, >1 = taller)
+- **Tire pressure (PSI)** — affects rolling resistance (F_rr ∝ 1/√psi)
 
 Two strategies are used depending on the parameter type:
 
 #### Direct calculation (new tunables)
 
 These parameters were previously hardcoded constants. Their values are computed
-directly from rider weight — no ratio needed because there's no user-facing
+directly from rider inputs — no ratio needed because there's no user-facing
 "default" to preserve:
 
-| Parameter | Formula | 80kg value |
-|-----------|---------|------------|
-| `torque_offset` | `0.1 * weight` | 8.0 |
+| Parameter | Formula | 80kg/20PSI value |
+|-----------|---------|------------------|
+| `torque_offset` | `0.1 * weight * √(20/psi)` | 8.0 |
 | `accel_clamp` | `400.0 / weight` | 5.0 |
 | `current_smoothing` | `clamp(16.0 / weight, 0.1, 0.4)` | 0.2 |
 | `wheelslip_accel_start` | `1200.0 / weight` | 15.0 |
